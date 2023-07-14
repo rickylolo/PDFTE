@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const pdfjsLib = require('pdfjs-dist/build/pdf')
+const cors = require('cors')
 
 // Creo mi aplicación express
 const app = express()
@@ -10,6 +11,7 @@ const port = process.env.PORT || 3000
 
 // Especifico que express use JSON para el body
 app.use(express.json({ limit: '50mb' }))
+app.use(cors())
 
 // Declaro un objeto que contenga mis funciones para mi PDF
 const PDF = {
