@@ -17,7 +17,7 @@ app.use(cors())
 const PDF = {
   getTextFromPDF: async (req, res) => {
     try {
-      const { pdf, searchWords } = req.body
+      const { pdf, searchWordObject } = req.body
 
       const buffer = Buffer.from(pdf, 'base64')
       const data = new Uint8Array(buffer)
@@ -33,15 +33,92 @@ const PDF = {
       }
 
       // Buscar palabras en el texto obtenido del PDF
-      const foundWords = {}
-      searchWords.forEach((word) => {
-        const regex = new RegExp(`\\b${word}\\b(?=:)(.*?)(?=\\b\\w+:|$)`, 'g')
-        const matches = text.match(regex)
-        if (matches) {
-          foundWords[word] = matches.map((match) => match.trim())
+      const foundWords = []
+
+      searchWordObject.forEach((obj) => {
+        const { searchWord, wordLength, finishSearchWord } = obj
+        const searchWordLength = searchWord.length
+
+        let results = []
+
+        //------------------ CASOS ---------------------
+
+        if (searchWordLength === 0) {
+          // Si la palabra buscada está vacía, no se agrega ningún resultado
+          results = []
+        } else if (wordLength === 0 && finishSearchWord === '') {
+          // Si no se especifica longitud ni final de búsqueda, se obtienen todas las ocurrencias
+          let currentIndex = text.indexOf(searchWord)
+          while (currentIndex !== -1) {
+            const result = text.slice(currentIndex + searchWordLength).trim()
+
+            let trimmedResult = result
+            if (trimmedResult.startsWith(':')) {
+              trimmedResult = trimmedResult.slice(1).trim() // Eliminar el ":" al inicio
+            }
+
+            results.push(trimmedResult)
+
+            currentIndex = text.indexOf(searchWord, currentIndex + 1)
+          }
+        } else if (wordLength > 0 && finishSearchWord === '') {
+          // Si se especifica solo la longitud, se busca sin restricciones de final
+          let currentIndex = 0
+          while (currentIndex !== -1) {
+            currentIndex = text.indexOf(searchWord, currentIndex)
+            if (currentIndex !== -1) {
+              const result = text
+                .slice(currentIndex + searchWordLength)
+                .trim()
+                .replace(/^:/, '') // Eliminar el ":" al inicio
+
+              results.push(result.substring(0, wordLength))
+
+              currentIndex = text.indexOf(searchWord, currentIndex + 1)
+            }
+          }
         } else {
-          foundWords[word] = []
+          // Si se especifica longitud o final de búsqueda, se realiza la búsqueda con restricciones
+          let currentIndex = 0
+          while (currentIndex !== -1) {
+            currentIndex = text.indexOf(searchWord, currentIndex)
+            if (currentIndex !== -1) {
+              const endIndex =
+                finishSearchWord === ''
+                  ? currentIndex + searchWordLength
+                  : text.indexOf(finishSearchWord, currentIndex + 1)
+              if (endIndex !== -1) {
+                const result = text
+                  .slice(currentIndex + searchWordLength, endIndex)
+                  .trim()
+
+                if (result.startsWith(':')) {
+                  if (wordLength > 0) {
+                    results.push(
+                      result.slice(1).trim().substring(0, wordLength)
+                    ) // Eliminar el ":" al inicio
+                  } else {
+                    results.push(result.slice(1).trim()) // Eliminar el ":" al inicio
+                  }
+                } else {
+                  if (wordLength > 0) {
+                    results.push(result.substring(0, wordLength))
+                  } else {
+                    results.push(result)
+                  }
+                }
+                currentIndex = endIndex
+              } else {
+                break
+              }
+            }
+          }
         }
+
+        foundWords.push({
+          searchWord,
+          results,
+        })
       })
 
       res.status(200).json({ text, foundWords })
@@ -63,5 +140,5 @@ app.get('*', (req, res) => {
 })
 
 app.listen(port, () => {
-  console.log('Servidor escuchando en el puerto: ', port)
+  console.log('Servidor escuchando en el puerto:', port)
 })
