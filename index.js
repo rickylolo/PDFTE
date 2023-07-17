@@ -69,8 +69,8 @@ const PDF = {
             if (currentIndex !== -1) {
               const result = text
                 .slice(currentIndex + searchWordLength)
-                .trim()
-                .replace(/^:/, '') // Eliminar el ":" al inicio
+                .slice(1)
+                .trim() // Eliminar el ":" al inicio
 
               results.push(result.substring(0, wordLength))
 
